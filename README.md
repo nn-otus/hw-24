@@ -164,3 +164,70 @@ Oct 06 14:26:00 u24srv03 pam-login[26311]: user=otusadm host=192.168.240.122 msg
 root@u24srv03:~#
 ```
 ## ДЗ-24 выполнено
+
+Задание со звездочкой
+Цель
+
+Создать нового пользователя, который:
+
++ может управлять контейнерами Docker без sudo;
+
++ имеет право перезапускать Docker-сервис (sudo systemctl restart docker);
+
++ при этом не получает лишних прав администратора.
+1. Создание пользователя
+```
+root@u24srv03:~# adduser dockeruser
+root@u24srv03:~# cat /etc/passwd | grep docker
+dockeruser:x:1006:1006:,,,:/home/dockeruser:/bin/bash
+```
+
+2. Добавление в группу docker  
+Группа docker даёт право использовать Docker-CLI без sudo
+```
+root@u24srv03:~# usermod -aG docker dockeruser
+root@u24srv03:~# cat /etc/group | grep docker
+users:x:100:user,test,dockeruser
+docker:x:990:dockeruser
+dockeruser:x:1006:
+root@u24srv03:~# groups dockeruser
+dockeruser : dockeruser users docker
+root@u24srv03:~# newgrp docker
+```
+3. Разрешить перезапуск Docker-сервиса без пароля
+
+Редактируем sudoers-файл:
+```
+visudo
+# Добавляем текст:
+#dockeruser может выполнять только эти четыре команды systemctl без запроса пароля:
+dockeruser ALL=(ALL) NOPASSWD: /bin/systemctl restart docker, /bin/systemctl status docker, /bin/systemctl stop docker, /bin/systemctl start docker
+```
+4. Проверка
+Переключаемся в пользователя dockeruser
+```
+root@u24srv03:~# su - dockeruser
+dockeruser@u24srv03:~$ docker ps
+CONTAINER ID   IMAGE     COMMAND   CREATED   STATUS    PORTS     NAMES
+dockeruser@u24srv03:~$ docker run hello-world
+
+Hello from Docker!
+...
+```
+Проверяем возможность управления сервисом без ввода пароля
+```
+dockeruser@u24srv03:~$ sudo systemctl stop docker
+Stopping 'docker.service', but its triggering units are still active:
+docker.socket
+dockeruser@u24srv03:~$ sudo systemctl status docker
+○ docker.service - Docker Application Container Engine
+     Loaded: loaded (/usr/lib/systemd/system/docker.service; enabled; preset: enabled)
+     Active: inactive (dead) since Tue 2025-10-07 11:41:21 UTC; 16s ago
+...
+dockeruser@u24srv03:~$ sudo systemctl start docker
+dockeruser@u24srv03:~$ sudo systemctl status docker | grep Active
+     Active: active (running) since Tue 2025-10-07 11:43:10 UTC; 16s ago
+dockeruser@u24srv03:~$
+```
+Все команды были выполнены без ввода пароля.
+### Задание со "звёздочкой" выполнено
